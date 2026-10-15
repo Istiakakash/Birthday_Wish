@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Project 16-10: Clearance Protocol</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Space Grotesk, Plus Jakarta Sans, & Playfair Display -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #090d16;
+      color: #f1f5f9;
+      overscroll-behavior-y: none;
+    }
+    .font-mono-tech {
+      font-family: 'Space Grotesk', monospace;
+    }
+    .font-script {
+      font-family: 'Dancing Script', cursive;
+    }
+
+    /* Ambient animated background grid */
+    .cyber-grid {
+      background-size: 32px 32px;
+      background-image: 
+        linear-gradient(to right, rgba(244, 63, 94, 0.07) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(244, 63, 94, 0.07) 1px, transparent 1px);
+    }
+
+    /* Glass card styling */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(244, 114, 182, 0.2);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6),
+                  0 0 25px 2px rgba(244, 63, 94, 0.12);
+    }
+
+    .glass-reveal {
+      background: rgba(26, 17, 34, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(251, 113, 133, 0.35);
+      box-shadow: 0 12px 40px rgba(244, 63, 94, 0.25);
+    }
+
+    /* Laser scan animation */
+    @keyframes scannerMove {
+      0% { top: 0%; opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { top: 96%; opacity: 0.8; }
+    }
+    .scanner-laser {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #fb7185, #38bdf8, transparent);
+      box-shadow: 0 0 12px #fb7185, 0 0 20px #38bdf8;
+      animation: scannerMove 1.8s ease-in-out infinite alternate;
+    }
+
+    /* Glitch shake for emergency trigger */
+    @keyframes alertShake {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-5px, 4px); }
+      40% { transform: translate(4px, -3px); }
+      60% { transform: translate(-4px, -2px); }
+      80% { transform: translate(3px, 3px); }
+    }
+    .alarm-shake {
+      animation: alertShake 0.18s linear infinite;
+    }
+
+    /* Floating hearts animation */
+    @keyframes gentleFloat {
+      0% { transform: translateY(105vh) scale(0.6) rotate(0deg); opacity: 0; }
+      15% { opacity: 0.85; }
+      85% { opacity: 0.85; }
+      100% { transform: translateY(-10vh) scale(1.1) rotate(360deg); opacity: 0; }
+    }
+    .ambient-heart {
+      position: fixed;
+      pointer-events: none;
+      animation: gentleFloat 8s linear infinite;
+      z-index: 5;
+    }
+
+    /* Prevent text drag on touch devices */
+    .touch-action-none {
+      touch-action: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen w-full relative flex flex-col items-center justify-between p-3 sm:p-6 overflow-x-hidden cyber-grid">
+
+  <!-- Ambient background light orbs -->
+  <div class="fixed top-[-10%] left-[-10%] w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-rose-600/15 blur-3xl pointer-events-none"></div>
+  <div class="fixed bottom-[-10%] right-[-10%] w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-cyan-600/15 blur-3xl pointer-events-none"></div>
+  <div id="heart-layer" class="fixed inset-0 pointer-events-none overflow-hidden z-10"></div>
+
+  <!-- Audio activation nudge bar for mobile browsers requiring user-gesture -->
+  <div id="audio-pill" class="w-full max-w-sm mb-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/80 flex items-center justify-between text-[11px] font-mono-tech text-gray-300 z-30">
+    <span class="flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      AUDIO: <strong id="sound-status" class="text-emerald-300">NATIVE SYNTH ACTIVE</strong>
+    </span>
+    <button id="toggle-sound-btn" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-500/20 active:scale-95">
+      Tap to Test Sound
+    </button>
+  </div>
+
+  <!-- Main Card Container -->
+  <main class="w-full max-w-md mx-auto my-auto relative z-20 transition-all duration-500">
+    <div id="card-wrapper" class="glass-panel rounded-3xl p-4 sm:p-6 relative overflow-hidden transition-all duration-500">
+      
+      <!-- Top Cyber Status Bar -->
+      <div id="top-status-bar" class="flex items-center justify-between border-b border-rose-500/20 pb-3 mb-5">
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+          </span>
+          <span class="font-mono-tech text-[10px] tracking-wider text-rose-300 font-semibold uppercase">SEC-LEVEL: WIFE-ONLY</span>
+        </div>
+        <div id="step-tag" class="font-mono-tech text-[10px] bg-rose-950/80 text-rose-300 px-2.5 py-1 rounded-full border border-rose-500/30 font-bold">
+          STEP 1 OF 4
+        </div>
+      </div>
+
+      <!-- Toast Banner for alerts/hints -->
+      <div id="mobile-toast" class="hidden mb-4 p-2.5 rounded-xl text-center text-xs font-mono-tech transition-all duration-300"></div>
+
+      <!-- ================= STEP 1: BIOMETRIC SCANNER ================= -->
+      <section id="step-1" class="step-pane flex flex-col items-center text-center">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-2xl mb-3 shadow-inner">
+          📸
+        </div>
+        <h1 class="font-mono-tech text-base sm:text-lg font-bold text-white uppercase tracking-wide">
+          Biometric Cuteness Scanner
+        </h1>
+        <p class="text-gray-400 text-xs mt-1 mb-4">
+          Target: <strong class="text-rose-300">Wife of the Century</strong> (Age 28 Upgrade)
+        </p>
+
+        <!-- Mock Scanner Frame -->
+        <div class="relative w-full max-w-[260px] h-56 rounded-2xl border-2 border-dashed border-rose-400/40 bg-slate-950/80 flex flex-col items-center justify-center overflow-hidden mb-4 p-3 shadow-2xl">
+          <div id="scanner-laser-line" class="scanner-laser hidden"></div>
+
+          <!-- Futuristic HUD Reticles -->
+          <span class="absolute top-2 left-2 text-[10px] text-cyan-400 font-mono-tech font-bold">⌜REC</span>
+          <span class="absolute top-2 right-2 text-[10px] text-rose-400 font-mono-tech font-bold">99.8%⌝</span>
+          <span class="absolute bottom-2 left-2 text-[10px] text-rose-400 font-mono-tech font-bold">⌞ISO 100</span>
+          <span class="absolute bottom-2 right-2 text-[10px] text-cyan-400 font-mono-tech font-bold">10.16⌟</span>
+
+          <div id="target-avatar" class="text-5xl transition-transform duration-300 mb-2">👸🏻</div>
+          <p id="scanner-status" class="text-[11px] font-mono-tech text-gray-300 text-center px-2">
+            Position lovely face & tap button to calibrate
+          </p>
+        </div>
+
+        <!-- Scanning Progress -->
+        <div id="scan-progress-box" class="w-full hidden mb-4">
+          <div class="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-rose-500/30">
+            <div id="scan-bar" class="bg-gradient-to-r from-rose-500 via-pink-400 to-cyan-400 h-full w-0 transition-all duration-150"></div>
+          </div>
+          <div class="flex justify-between items-center text-[11px] font-mono-tech text-gray-400 mt-1.5 px-0.5">
+            <span id="scan-text">Analyzing cheekbone radians...</span>
+            <span id="scan-num" class="text-rose-300 font-bold">0%</span>
+          </div>
+        </div>
+
+        <!-- Overload Calibration Warning Box -->
+        <div id="scanner-fix-card" class="hidden w-full bg-rose-950/50 border border-rose-500/40 rounded-2xl p-3.5 mb-4 text-left">
+          <div class="flex items-center gap-1.5 text-rose-300 font-mono-tech text-xs font-bold mb-1">
+            <span class="animate-bounce">⚠️</span> OPTICAL SENSOR OVERLOAD
+          </div>
+          <p class="text-[12px] text-rose-100 leading-snug">
+            <strong>System Error:</strong> Radiance level too intense. The camera cannot handle this much cuteness!
+            <br><span class="text-cyan-300 block mt-1">👉 Calibration Rule: Blink twice and blow a soft kiss at your phone screen!</span>
+          </p>
+          <button id="btn-kiss-confirm" class="mt-2.5 w-full py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-95 text-white rounded-xl text-xs font-mono-tech font-bold uppercase tracking-wider active:scale-95 shadow-lg">
+            💋 Kiss Delivered (Re-verify)
+          </button>
+        </div>
+
+        <!-- Results Breakdown -->
+        <div id="scan-telemetry" class="hidden w-full bg-slate-900/90 border border-cyan-400/30 rounded-2xl p-3.5 mb-4 text-left">
+          <div class="text-[11px] font-mono-tech text-cyan-300 font-bold mb-2 flex items-center justify-between">
+            <span>✓ BIOMETRIC BREAKDOWN</span>
+            <span class="text-emerald-400">100% MATCH</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-[11px] font-mono-tech">
+            <div class="bg-slate-800/80 p-2 rounded-xl border border-slate-700">
+              <span class="text-gray-400 block text-[9px]">ADORABLE FACTOR</span>
+              <span class="text-rose-400 font-bold text-xs">100.0% Max</span>
+            </div>
+            <div class="bg-slate-800/80 p-2 rounded-xl border border-slate-700">
+              <span class="text-gray-400 block text-[9px]">PATIENCE FOR HUSBAND</span>
+              <span class="text-amber-300 font-bold text-xs">2.8% Low</span>
+            </div>
+            <div class="bg-slate-800/80 p-2 rounded-xl border border-slate-700">
+              <span class="text-gray-400 block text-[9px]">SNACK DESIRE</span>
+              <span class="text-purple-300 font-bold text-xs">CRITICAL HIGH</span>
+            </div>
+            <div class="bg-slate-800/80 p-2 rounded-xl border border-slate-700">
+              <span class="text-gray-400 block text-[9px]">STATUS</span>
+              <span class="text-emerald-400 font-bold text-xs">CLEARANCE APPROVED</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trigger Button -->
+        <button id="btn-start-scan" class="w-full py-3.5 px-4 bg-gradient-to-r from-rose-500 via-pink-500 to-cyan-500 text-white rounded-2xl font-mono-tech text-xs sm:text-sm font-bold tracking-wider uppercase active:scale-95 shadow-lg shadow-rose-500/25">
+          Scan My Gorgeous Face
+        </button>
+
+        <button id="btn-go-step2" class="hidden w-full py-3.5 px-4 bg-cyan-400 text-slate-950 rounded-2xl font-mono-tech text-xs sm:text-sm font-bold tracking-wider uppercase active:scale-95 shadow-lg shadow-cyan-400/25">
+          Proceed to Step 2 →
+        </button>
+      </section>
+
+      <!-- ================= STEP 2: EVASIVE AGE BUTTON ================= -->
+      <section id="step-2" class="step-pane hidden flex flex-col items-center text-center">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-2xl mb-3 shadow-inner">
+          🎂
+        </div>
+        <h2 class="font-mono-tech text-base sm:text-lg font-bold text-white uppercase tracking-wide">
+          Age Verification System
+        </h2>
+        <p class="text-gray-400 text-xs mt-1 mb-3">
+          Our records show you are leveling up on <strong>16 October</strong>. Please declare your legal age:
+        </p>
+
+        <!-- Evasion Arena Box -->
+        <div id="evasion-arena" class="relative w-full h-64 rounded-2xl bg-slate-950/70 border border-rose-500/20 p-3 flex flex-col justify-start items-center overflow-hidden touch-action-none select-none">
+          
+          <p class="text-[11px] font-mono-tech text-gray-400 mt-1 mb-2">
+            Select one of the official options below:
+          </p>
+
+          <!-- The Safe/Acceptable Choice -->
+          <button id="btn-age-forever18" class="w-full py-3 px-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-95 text-white text-xs font-semibold rounded-xl shadow-md border border-emerald-300/40 active:scale-95 transition-all z-10 mb-3">
+            ✨ Turning 18 (with 10 years of experience)
+          </button>
+
+          <!-- The Evasive/Playful Runaway Button -->
+          <button id="btn-age-28" class="absolute py-2.5 px-4 bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-400/60 shadow-lg cursor-pointer whitespace-nowrap transition-all duration-150 top-[140px]">
+            "Officially turning 28"
+          </button>
+
+          <!-- Dynamic Evasion Counter / Message -->
+          <span id="evasion-prompt" class="absolute bottom-2 left-0 right-0 text-center text-[10px] font-mono-tech text-cyan-300 opacity-0 transition-opacity duration-200">
+            *System warning: This button cannot be caught!*
+          </span>
+        </div>
+
+        <div id="step2-approved-box" class="hidden mt-3 w-full p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl text-xs text-emerald-200 font-medium">
+          🎉 Identity Confirmed! Forever 18 is legally recognized by the Birthday Bureau.
+        </div>
+
+        <button id="btn-go-step3" class="hidden mt-4 w-full py-3.5 px-4 bg-cyan-400 text-slate-950 rounded-2xl font-mono-tech text-xs sm:text-sm font-bold tracking-wider uppercase active:scale-95 shadow-lg shadow-cyan-400/25">
+          Proceed to Step 3 →
+        </button>
+      </section>
+
+      <!-- ================= STEP 3: HUSBAND EVALUATION CAPTCHA ================= -->
+      <section id="step-3" class="step-pane hidden flex flex-col items-center">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-2xl mb-2 shadow-inner">
+          🕵️
+        </div>
+        <h2 class="font-mono-tech text-base sm:text-lg font-bold text-white uppercase tracking-wide text-center">
+          Mandatory Human CAPTCHA
+        </h2>
+        <p class="text-gray-400 text-[11px] sm:text-xs mt-1 mb-3 text-center">
+          Select all squares containing: <strong class="text-cyan-300">"The Best Husband in the Universe"</strong>
+        </p>
+
+        <!-- 3x3 Responsive Touch Grid -->
+        <div id="captcha-container" class="grid grid-cols-3 gap-2 w-full max-w-[310px] mb-3">
+          <!-- Rendered via JavaScript -->
+        </div>
+
+        <div id="captcha-msg" class="hidden text-[11px] text-rose-400 font-mono-tech text-center mb-2.5"></div>
+
+        <!-- Binding Agreement Checkbox -->
+        <label class="w-full flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/25 text-[11px] text-gray-300 cursor-pointer mb-3 select-none">
+          <input type="checkbox" id="husband-agree-check" class="mt-0.5 w-4 h-4 rounded text-rose-500 accent-rose-500 focus:ring-0">
+          <span>I legally certify that my husband is always right, except when he is wrong, which scientifically never happens.</span>
+        </label>
+
+        <button id="btn-verify-captcha" class="w-full py-3 px-4 bg-gradient-to-r from-rose-500 to-purple-600 text-white rounded-2xl font-mono-tech text-xs sm:text-sm font-bold tracking-wider uppercase active:scale-95 shadow-md">
+          Verify Husband Clearance
+        </button>
+
+        <button id="btn-go-step4" class="hidden mt-3 w-full py-3.5 px-4 bg-cyan-400 text-slate-950 rounded-2xl font-mono-tech text-xs sm:text-sm font-bold tracking-wider uppercase active:scale-95 shadow-lg shadow-cyan-400/25">
+          Proceed to Step 4 →
+        </button>
+      </section>
+
+      <!-- ================= STEP 4: DIGITAL PIN OVERRIDE ================= -->
+      <section id="step-4" class="step-pane hidden flex flex-col items-center text-center">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-2xl mb-2 shadow-inner">
+          🔒
+        </div>
+        <h2 class="font-mono-tech text-base sm:text-lg font-bold text-white uppercase tracking-wide">
+          Vault Defusal Override
+        </h2>
+        <p class="text-gray-400 text-xs mt-1 mb-3">
+          Enter 4-digit code for the <span class="text-rose-300 font-semibold">Best Day of the Year (DD/MM)</span>:
+        </p>
+
+        <!-- PIN Slot Visualizer -->
+        <div class="flex items-center justify-center gap-2.5 mb-2">
+          <div id="dot-0" class="w-11 h-12 rounded-xl bg-slate-950 border-2 border-rose-500/30 flex items-center justify-center font-mono-tech text-xl text-cyan-300 font-bold shadow-inner"></div>
+          <div id="dot-1" class="w-11 h-12 rounded-xl bg-slate-950 border-2 border-rose-500/30 flex items-center justify-center font-mono-tech text-xl text-cyan-300 font-bold shadow-inner"></div>
+          <div id="dot-2" class="w-11 h-12 rounded-xl bg-slate-950 border-2 border-rose-500/30 flex items-center justify-center font-mono-tech text-xl text-cyan-300 font-bold shadow-inner"></div>
+          <div id="dot-3" class="w-11 h-12 rounded-xl bg-slate-950 border-2 border-rose-500/30 flex items-center justify-center font-mono-tech text-xl text-cyan-300 font-bold shadow-inner"></div>
+        </div>
+
+        <!-- Teaser message -->
+        <div id="pin-subtext" class="h-6 text-[11px] font-mono-tech text-rose-300 mb-3 transition-all">
+          Hint: 16 October (1610)
+        </div>
+
+        <!-- Touch-Friendly Numeric Keypad -->
+        <div class="grid grid-cols-3 gap-2 w-full max-w-[240px] mb-4">
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="1">1</button>
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="2">2</button>
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="3">3</button>
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="4">4</button>
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="5">5</button>
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="6">6</button>
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="7">7</button>
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="8">8</button>
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="9">9</button>
+          <button id="key-clr" class="py-2.5 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 font-mono-tech text-xs active:scale-90">CLEAR</button>
+          <button class="num-key py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-lg active:scale-90" data-val="0">0</button>
+          <button id="key-del" class="py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-gray-300 font-mono-tech text-sm active:scale-90">⌫</button>
+        </div>
+
+        <button id="btn-fire-override" disabled class="w-full py-3.5 px-4 bg-slate-800 text-gray-500 cursor-not-allowed rounded-2xl font-mono-tech text-xs sm:text-sm font-bold tracking-wider uppercase transition-all shadow-md">
+          Execute Vault Override
+        </button>
+      </section>
+
+      <!-- ================= STEP 5: FINAL CELEBRATION REVEAL ================= -->
+      <section id="step-5" class="step-pane hidden flex flex-col items-center text-center">
+        
+        <!-- Golden Birthday Crown Badge -->
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-300 font-mono-tech text-[10px] tracking-widest uppercase mb-3">
+          👑 VIP BIRTHDAY PASS GRANTED 👑
+        </div>
+
+        <h1 class="font-script text-4xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-rose-300 via-pink-200 to-amber-200 leading-tight">
+          Happy Birthday!
+        </h1>
+        <h2 class="font-mono-tech text-sm sm:text-base font-bold text-white uppercase tracking-wider mt-0.5 mb-4">
+          To My Incredible Wife ❤️
+        </h2>
+
+        <!-- Polaroid Photo Frame (Easily swappable with user's own photo) -->
+        <div class="relative w-full max-w-[270px] bg-white rounded-2xl p-3 pb-5 shadow-2xl text-slate-800 mb-4 transform -rotate-1 hover:rotate-0 transition-transform">
+          <div class="w-full h-52 sm:h-56 rounded-xl overflow-hidden bg-slate-100 relative mb-2.5 border border-slate-200">
+            <img 
+              id="wife-portrait"
+              src="wife.jpeg" 
+              alt="Birthday Queen"
+              class="w-full h-full object-cover"
+              onerror="this.src='https://placehold.co/400x500/1e293b/f43f5e?text=Insert+Wife+Photo+Here'"
+            />
+            <div class="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-mono-tech">
+              16 OCT • LEVEL 28
+            </div>
+          </div>
+          <p class="font-script text-xl text-rose-600 font-bold">Forever my favorite person</p>
+        </div>
+
+        <!-- Romantic Note -->
+        <div class="w-full bg-slate-900/80 border border-rose-500/30 rounded-2xl p-4 text-left mb-4 shadow-inner">
+          <p class="text-xs sm:text-sm text-gray-200 leading-relaxed mb-2.5">
+            You completed every tricky protocol, but the truth is: having you in my life has been the greatest gift I could ever ask for.
+          </p>
+          <p class="text-xs sm:text-sm text-rose-200 leading-relaxed font-medium">
+            At 28, you are more gorgeous, radiant, kind, and witty than ever. Today is entirely about you: unlimited desserts, endless pampering, and all of my love. Happy Birthday, baby! 🥂✨
+          </p>
+        </div>
+
+        <!-- Interaction Buttons -->
+        <div class="w-full flex flex-col gap-2.5">
+          <button id="btn-claim-voucher" class="w-full py-3.5 px-4 bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-95 text-white rounded-2xl font-mono-tech text-xs sm:text-sm font-bold uppercase tracking-wider active:scale-95 shadow-lg shadow-rose-500/30">
+            🎁 Claim Birthday Hug & Treat Voucher
+          </button>
+          <button id="btn-more-confetti" class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-cyan-300 rounded-2xl font-mono-tech text-xs font-semibold border border-cyan-500/30 active:scale-95">
+            🎉 Trigger More Confetti Blast
+          </button>
+        </div>
+
+        <div id="voucher-box" class="hidden mt-3 w-full p-3 bg-pink-950/60 border border-pink-500/40 rounded-2xl text-[11px] font-mono-tech text-pink-200">
+          ✓ VOUCHER REDEEMED: Show this to your husband to claim unlimited cuddles, full dinner menu authority, and 1 giant birthday dessert!
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Glitch / Alarm Fullscreen Alert Overlay -->
+  <div id="alarm-screen" class="fixed inset-0 bg-red-950/90 z-50 flex flex-col items-center justify-center p-6 text-center backdrop-blur-md hidden">
+    <div class="alarm-shake text-6xl mb-3">🚨</div>
+    <h2 class="font-mono-tech text-xl sm:text-3xl font-extrabold text-red-400 tracking-wider uppercase mb-1">
+      PROTOCOL BREACH DETECTED
+    </h2>
+    <p class="font-mono-tech text-xs sm:text-sm text-red-200 max-w-xs">
+      CRITICAL CUTE CONCENTRATION DETECTED.
+      <br>DEFUSING ALL SECURITY MEASURES...
+    </p>
+  </div>
+
+  <!-- Mobile Footer Info -->
+  <footer class="w-full text-center text-[10px] font-mono-tech text-gray-500 py-2 z-20">
+    PROJECT 16-10 // CREATED WITH ALL MY LOVE FOR HER 28TH BIRTHDAY
+  </footer>
+
+  <script>
+    /* =========================================================
+       1. WEB AUDIO API SYNTHESIZER (No external sound files)
+       ========================================================= */
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playTone(freq, type, duration, delay = 0, vol = 0.12) {
+      setTimeout(() => {
+        try {
+          const ctx = getAudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+          gain.gain.setValueAtTime(vol, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start();
+          osc.stop(ctx.currentTime + duration);
+        } catch (e) {
+          // Audio fails gracefully on strict autoplay
+        }
+      }, delay);
+    }
+
+    // Sound effect presets
+    const sounds = {
+      click: () => playTone(650, 'sine', 0.08, 0, 0.15),
+      beep: () => playTone(1200, 'triangle', 0.06, 0, 0.1),
+      buzz: () => playTone(160, 'sawtooth', 0.22, 0, 0.2),
+      yay: () => {
+        playTone(523.25, 'sine', 0.12, 0);
+        playTone(659.25, 'sine', 0.12, 80);
+        playTone(783.99, 'sine', 0.16, 160);
+        playTone(1046.50, 'sine', 0.28, 240);
+      },
+      alarm: () => {
+        for (let i = 0; i < 4; i++) {
+          playTone(480, 'sawtooth', 0.15, i * 200, 0.2);
+          playTone(320, 'sawtooth', 0.15, i * 200 + 100, 0.2);
+        }
+      },
+      fanfare: () => {
+        const chord = [392, 523.25, 659.25, 783.99, 1046.50];
+        chord.forEach((freq, idx) => playTone(freq, 'triangle', 0.35, idx * 80, 0.18));
+      }
+    };
+
+    // User test audio button
+    document.getElementById('toggle-sound-btn').addEventListener('click', () => {
+      getAudioContext();
+      sounds.yay();
+      showToast('Audio unlocked & operational!', 'emerald');
+    });
+
+    /* =========================================================
+       2. AMBIENT BACKGROUND PARTICLES
+       ========================================================= */
+    function spawnAmbientHearts() {
+      const container = document.getElementById('heart-layer');
+      const icons = ['🌸', '✨', '💖', '👑', '🎂', '💕'];
+      for (let i = 0; i < 16; i++) {
+        const heart = document.createElement('div');
+        heart.className = 'ambient-heart';
+        heart.textContent = icons[Math.floor(Math.random() * icons.length)];
+        heart.style.left = `${Math.random() * 95}vw`;
+        heart.style.animationDuration = `${6 + Math.random() * 6}s`;
+        heart.style.animationDelay = `${Math.random() * 5}s`;
+        heart.style.fontSize = `${14 + Math.random() * 16}px`;
+        container.appendChild(heart);
+      }
+    }
+    spawnAmbientHearts();
+
+    function showToast(text, color = 'rose') {
+      const toast = document.getElementById('mobile-toast');
+      toast.className = `mb-3 p-2.5 rounded-xl text-center text-xs font-mono-tech transition-all duration-300 bg-${color}-950/80 text-${color}-300 border border-${color}-500/30`;
+      toast.textContent = text;
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3500);
+    }
+
+    function switchStep(oldStepId, newStepId, stepLabel) {
+      document.getElementById(oldStepId).classList.add('hidden');
+      document.getElementById(newStepId).classList.remove('hidden');
+      document.getElementById('step-tag').textContent = stepLabel;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* =========================================================
+       3. STEP 1: SCANNER INTERACTIONS
+       ========================================================= */
+    const btnStartScan = document.getElementById('btn-start-scan');
+    const laserLine = document.getElementById('scanner-laser-line');
+    const scanProgressBox = document.getElementById('scan-progress-box');
+    const scanBar = document.getElementById('scan-bar');
+    const scanNum = document.getElementById('scan-num');
+    const scanText = document.getElementById('scan-text');
+    const scannerStatus = document.getElementById('scanner-status');
+    const scannerFixCard = document.getElementById('scanner-fix-card');
+    const btnKissConfirm = document.getElementById('btn-kiss-confirm');
+    const scanTelemetry = document.getElementById('scan-telemetry');
+    const btnGoStep2 = document.getElementById('btn-go-step2');
+
+    btnStartScan.addEventListener('click', () => {
+      sounds.click();
+      btnStartScan.classList.add('hidden');
+      laserLine.classList.remove('hidden');
+      scanProgressBox.classList.remove('hidden');
+      scannerStatus.textContent = 'Analyzing face symmetry & cuteness...';
+
+      let percent = 0;
+      const scanTimer = setInterval(() => {
+        percent += Math.floor(Math.random() * 7) + 4;
+        if (percent < 99) {
+          scanBar.style.width = `${percent}%`;
+          scanNum.textContent = `${percent}%`;
+          sounds.beep();
+        } else {
+          // Trap at 99%
+          clearInterval(scanTimer);
+          scanBar.style.width = '99%';
+          scanNum.textContent = '99%';
+          laserLine.classList.add('hidden');
+          sounds.buzz();
+          scannerStatus.textContent = '⚠️ OPTICAL SENSOR OVERLOAD!';
+          scannerStatus.classList.add('text-rose-400', 'font-bold');
+          scannerFixCard.classList.remove('hidden');
+        }
+      }, 100);
+    });
+
+    btnKissConfirm.addEventListener('click', () => {
+      sounds.yay();
+      scannerFixCard.classList.add('hidden');
+      scanBar.style.width = '100%';
+      scanNum.textContent = '100%';
+      scanText.textContent = 'Blowing kiss detected! Verification unlocked.';
+      scannerStatus.textContent = '✓ Calibration Approved';
+      scannerStatus.classList.remove('text-rose-400');
+      scannerStatus.classList.add('text-emerald-400');
+      scanTelemetry.classList.remove('hidden');
+      btnGoStep2.classList.remove('hidden');
+    });
+
+    btnGoStep2.addEventListener('click', () => {
+      sounds.click();
+      switchStep('step-1', 'step-2', 'STEP 2 OF 4');
+    });
+
+    /* =========================================================
+       4. STEP 2: EVASIVE AGE BUTTON (Mobile Touch & Pointer)
+       ========================================================= */
+    const btnAge28 = document.getElementById('btn-age-28');
+    const btnAgeSafe = document.getElementById('btn-age-forever18');
+    const evasionArena = document.getElementById('evasion-arena');
+    const evasionPrompt = document.getElementById('evasion-prompt');
+    const step2ApprovedBox = document.getElementById('step2-approved-box');
+    const btnGoStep3 = document.getElementById('btn-go-step3');
+
+    let evasions = 0;
+
+    function moveEvasiveButton(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      sounds.buzz();
+      evasions++;
+
+      const arenaBounds = evasionArena.getBoundingClientRect();
+      const btnBounds = btnAge28.getBoundingClientRect();
+
+      // Boundaries keeping the button safely inside the container
+      const maxX = Math.max(10, arenaBounds.width - btnBounds.width - 24);
+      const maxY = Math.max(70, arenaBounds.height - btnBounds.height - 24);
+
+      const newX = Math.floor(Math.random() * maxX) + 12;
+      const newY = Math.floor(Math.random() * (maxY - 70)) + 70; // keep below top button
+
+      btnAge28.style.left = `${newX}px`;
+      btnAge28.style.top = `${newY}px`;
+
+      evasionPrompt.style.opacity = '1';
+      if (evasions === 1) evasionPrompt.textContent = '💨 Nope! Age 28 refused to be registered.';
+      else if (evasions === 2) evasionPrompt.textContent = '😂 It darted away again! Tap the green option!';
+      else if (evasions >= 3) {
+        evasionPrompt.textContent = '🎁 Fine, you caught it! Forever 18 automatically selected!';
+        btnAge28.classList.add('opacity-40');
+      }
+    }
+
+    // Touch and mouse events for high responsiveness
+    btnAge28.addEventListener('pointerdown', moveEvasiveButton);
+    btnAge28.addEventListener('touchstart', moveEvasiveButton, { passive: false });
+    btnAge28.addEventListener('mouseenter', moveEvasiveButton);
+
+    btnAgeSafe.addEventListener('click', () => {
+      sounds.yay();
+      btnAge28.classList.add('hidden');
+      evasionPrompt.classList.add('hidden');
+      step2ApprovedBox.classList.remove('hidden');
+      btnGoStep3.classList.remove('hidden');
+    });
+
+    btnGoStep3.addEventListener('click', () => {
+      sounds.click();
+      switchStep('step-2', 'step-3', 'STEP 3 OF 4');
+      setupCaptcha();
+    });
+
+    /* =========================================================
+       5. STEP 3: TOTALLY UNBIASED HUSBAND CAPTCHA
+       ========================================================= */
+    const captchaData = [
+      { id: 1, icon: '🤵🏻', label: 'Husband who brings coffee', isHusband: true },
+      { id: 2, icon: '☕', label: 'Iced Latte (Not Husband)', isHusband: false },
+      { id: 3, icon: '🍳', label: 'Husband cooking breakfast', isHusband: true },
+      { id: 4, icon: '🧹', label: 'Husband cleaning kitchen', isHusband: true },
+      { id: 5, icon: '🐱', label: 'Sleepy Cat (Not Husband)', isHusband: false },
+      { id: 6, icon: '🛍️', label: 'Husband holding all bags', isHusband: true },
+      { id: 7, icon: '💆🏻‍♂️', label: 'Husband giving back massage', isHusband: true },
+      { id: 8, icon: '🥰', label: 'Husband giving forehead kisses', isHusband: true },
+      { id: 9, icon: '👑', label: 'Your #1 Fan Forever', isHusband: true }
+    ];
+
+    let selectedCaptchaTiles = new Set();
+
+    function setupCaptcha() {
+      const grid = document.getElementById('captcha-container');
+      grid.innerHTML = '';
+      selectedCaptchaTiles.clear();
+
+      captchaData.forEach(item => {
+        const tile = document.createElement('button');
+        tile.type = 'button';
+        tile.className = 'tile-item relative flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900 border border-slate-800 h-24 select-none active:scale-95 transition-all';
+        tile.dataset.id = item.id;
+        tile.innerHTML = `
+          <div class="text-2xl sm:text-3xl mb-1">${item.icon}</div>
+          <div class="text-[9px] text-gray-300 text-center leading-tight line-clamp-2">${item.label}</div>
+          <div class="badge hidden absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-400 text-slate-950 font-bold text-[10px] flex items-center justify-center">✓</div>
+        `;
+
+        tile.addEventListener('click', () => {
+          sounds.click();
+          const badge = tile.querySelector('.badge');
+          if (selectedCaptchaTiles.has(item.id)) {
+            selectedCaptchaTiles.delete(item.id);
+            tile.classList.remove('border-emerald-400', 'bg-emerald-950/20');
+            badge.classList.add('hidden');
+          } else {
+            selectedCaptchaTiles.add(item.id);
+            tile.classList.add('border-emerald-400', 'bg-emerald-950/20');
+            badge.classList.remove('hidden');
+          }
+        });
+
+        grid.appendChild(tile);
+      });
+    }
+
+    const btnVerifyCaptcha = document.getElementById('btn-verify-captcha');
+    const legalCheckbox = document.getElementById('husband-agree-check');
+    const captchaMsg = document.getElementById('captcha-msg');
+    const btnGoStep4 = document.getElementById('btn-go-step4');
+
+    btnVerifyCaptcha.addEventListener('click', () => {
+      const correctHusbandIds = captchaData.filter(x => x.isHusband).map(x => x.id);
+      const impostorIds = captchaData.filter(x => !x.isHusband).map(x => x.id);
+
+      const hasAllHusbands = correctHusbandIds.every(id => selectedCaptchaTiles.has(id));
+      const hasNoImpostors = !impostorIds.some(id => selectedCaptchaTiles.has(id));
+      const hasAgreed = legalCheckbox.checked;
+
+      if (!hasAgreed) {
+        sounds.buzz();
+        captchaMsg.classList.remove('hidden');
+        captchaMsg.textContent = '⚠️ You must check the legal certificate agreement below!';
+        return;
+      }
+
+      if (!hasNoImpostors) {
+        sounds.buzz();
+        captchaMsg.classList.remove('hidden');
+        captchaMsg.textContent = '⚠️ That cat or latte is tempting, but not legally your husband!';
+        return;
+      }
+
+      if (!hasAllHusbands) {
+        sounds.buzz();
+        captchaMsg.classList.remove('hidden');
+        captchaMsg.textContent = '⚠️ Missing some husband squares! Select all tiles with him.';
+        return;
+      }
+
+      // Validated
+      sounds.yay();
+      captchaMsg.classList.add('hidden');
+      btnVerifyCaptcha.classList.add('hidden');
+      btnGoStep4.classList.remove('hidden');
+      showToast('Human & Wife Verification Passed!', 'emerald');
+    });
+
+    btnGoStep4.addEventListener('click', () => {
+      sounds.click();
+      switchStep('step-3', 'step-4', 'FINAL DEFUSAL');
+    });
+
+    /* =========================================================
+       6. STEP 4: PASSCODE DEFUSAL (PIN: 1610)
+       ========================================================= */
+    const correctPin = '1610';
+    let enteredPin = '';
+    const pinDots = [
+      document.getElementById('dot-0'),
+      document.getElementById('dot-1'),
+      document.getElementById('dot-2'),
+      document.getElementById('dot-3')
+    ];
+    const pinSubtext = document.getElementById('pin-subtext');
+    const btnFireOverride = document.getElementById('btn-fire-override');
+
+    const pinHints = {
+      1: 'Digit 1/4: 100 forehead kisses loaded...',
+      2: 'Digit 2/4: Romantic dinner date confirmed...',
+      3: 'Digit 3/4: Lifetime foot rubs unlocked...',
+      4: 'Digit 4/4: CODE ACCEPTED! Ready to override!'
+    };
+
+    function refreshPinDisplay() {
+      for (let i = 0; i < 4; i++) {
+        if (i < enteredPin.length) {
+          pinDots[i].textContent = enteredPin[i];
+          pinDots[i].classList.add('border-rose-400', 'bg-rose-950/40');
+        } else {
+          pinDots[i].textContent = '';
+          pinDots[i].classList.remove('border-rose-400', 'bg-rose-950/40');
+        }
+      }
+
+      if (enteredPin.length > 0) {
+        pinSubtext.textContent = pinHints[enteredPin.length];
+      } else {
+        pinSubtext.textContent = 'Hint: 16 October (1610)';
+      }
+
+      if (enteredPin.length === 4) {
+        if (enteredPin === correctPin) {
+          sounds.yay();
+          btnFireOverride.disabled = false;
+          btnFireOverride.className = 'w-full py-4 px-4 bg-gradient-to-r from-red-500 via-rose-500 to-pink-500 text-white rounded-2xl font-mono-tech text-xs sm:text-sm font-bold tracking-wider uppercase transition-all shadow-xl shadow-rose-500/30 cursor-pointer animate-pulse';
+        } else {
+          sounds.buzz();
+          pinSubtext.textContent = '❌ Invalid Code! Try her birthday day/month (1610).';
+          btnFireOverride.disabled = true;
+          btnFireOverride.className = 'w-full py-3.5 px-4 bg-slate-800 text-gray-500 cursor-not-allowed rounded-2xl font-mono-tech text-xs sm:text-sm font-bold tracking-wider uppercase transition-all shadow-md';
+        }
+      } else {
+        btnFireOverride.disabled = true;
+        btnFireOverride.className = 'w-full py-3.5 px-4 bg-slate-800 text-gray-500 cursor-not-allowed rounded-2xl font-mono-tech text-xs sm:text-sm font-bold tracking-wider uppercase transition-all shadow-md';
+      }
+    }
+
+    document.querySelectorAll('.num-key').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sounds.click();
+        if (enteredPin.length < 4) {
+          enteredPin += btn.dataset.val;
+          refreshPinDisplay();
+        }
+      });
+    });
+
+    document.getElementById('key-clr').addEventListener('click', () => {
+      sounds.click();
+      enteredPin = '';
+      refreshPinDisplay();
+    });
+
+    document.getElementById('key-del').addEventListener('click', () => {
+      sounds.click();
+      enteredPin = enteredPin.slice(0, -1);
+      refreshPinDisplay();
+    });
+
+    /* =========================================================
+       7. STEP 5: GLITCH ALARM & BIRTHDAY REVEAL
+       ========================================================= */
+    const alarmScreen = document.getElementById('alarm-screen');
+    const cardWrapper = document.getElementById('card-wrapper');
+    const topStatusBar = document.getElementById('top-status-bar');
+
+    btnFireOverride.addEventListener('click', () => {
+      // Alarm sequence
+      alarmScreen.classList.remove('hidden');
+      sounds.alarm();
+
+      setTimeout(() => {
+        alarmScreen.classList.add('hidden');
+        switchStep('step-4', 'step-5', 'LEVEL 28 CONFIRMED');
+        
+        // Transition card from cyber-dark to warm celebration palette
+        cardWrapper.classList.remove('glass-panel');
+        cardWrapper.classList.add('glass-reveal');
+        topStatusBar.classList.add('hidden');
+
+        sounds.fanfare();
+        fireCelebrationConfetti();
+      }, 1600);
+    });
+
+    function fireCelebrationConfetti() {
+      const end = Date.now() + 4.5 * 1000;
+      const colors = ['#f43f5e', '#ec4899', '#38bdf8', '#fbbf24', '#ffffff'];
+
+      (function frame() {
+        confetti({
+          particleCount: 5,
+          angle: 60,
+          spread: 60,
+          origin: { x: 0, y: 0.7 },
+          colors: colors
+        });
+        confetti({
+          particleCount: 5,
+          angle: 120,
+          spread: 60,
+          origin: { x: 1, y: 0.7 },
+          colors: colors
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      }());
+    }
+
+    document.getElementById('btn-claim-voucher').addEventListener('click', () => {
+      sounds.yay();
+      confetti({
+        particleCount: 90,
+        spread: 80,
+        origin: { y: 0.6 }
+      });
+      document.getElementById('voucher-box').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-more-confetti').addEventListener('click', () => {
+      sounds.fanfare();
+      fireCelebrationConfetti();
+    });
+
+    // Initialize Lucide icons if any
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>
